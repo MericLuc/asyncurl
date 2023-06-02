@@ -1,0 +1,58 @@
+set(INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME} )
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_definitions("-Wall -g -O3")
+
+# Directories are created with 0755 permissions
+set(CMAKE_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS
+    OWNER_READ
+    OWNER_WRITE
+    OWNER_EXECUTE
+    GROUP_READ
+    GROUP_EXECUTE
+    WORLD_READ
+    WORLD_EXECUTE
+)
+
+set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(INC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+
+file(GLOB_RECURSE INCLUDE_HEADER ${INC_DIR}/${PROJECT_NAME}.hpp)
+file(GLOB_RECURSE HEADER_FILES    ${SRC_DIR}/*.hpp)
+file(GLOB_RECURSE SOURCE_FILES    ${SRC_DIR}/*.cpp)
+
+add_library(
+  ${PROJECT_NAME}
+  STATIC
+  ${SOURCE_FILES}
+)
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBCURL REQUIRED libcurl)
+find_package(OpenSSL REQUIRED)
+
+target_include_directories(${PROJECT_NAME}
+    PUBLIC
+        $<BUILD_INTERFACE:${SRC_DIR}>
+        $<BUILD_INTERFACE:${INC_DIR}>
+        $<INSTALL_INTERFACE:${INSTALL_DIR}/include>
+    PRIVATE
+        ${LIBCURL_INCLUDE_DIRS}
+)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC miniloop libcurl)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_LANGUAGE CXX)
+set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${INCLUDE_HEADER}")
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${PROJECT_NAME}")
+set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".a")
+set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "")
+
+install( TARGETS "${PROJECT_NAME}"
+   ARCHIVE DESTINATION "${INSTALL_DIR}/lib"
+   COMPONENT library
+   PUBLIC_HEADER DESTINATION "${INSTALL_DIR}/include"
+)

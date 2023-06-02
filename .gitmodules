@@ -1,0 +1,3 @@
+[submodule "3rd/miniloop"]
+	path = 3rd/miniloop
+	url = ../miniloop.git
