@@ -1,0 +1,10 @@
+if(BUILD_EXAMPLES)
+    set(CUR_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
+    file(GLOB children RELATIVE ${CUR_DIR} ${CUR_DIR}/*)
+    foreach(child ${children})
+        if(IS_DIRECTORY ${CUR_DIR}/${child})
+            add_subdirectory(${CUR_DIR}/${child})
+        endif()
+    endforeach()
+endif()
