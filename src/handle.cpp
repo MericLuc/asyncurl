@@ -244,7 +244,7 @@ handle::set_opt_bool(int id, bool val) noexcept
 /**
  * @brief get_info - retrieve an information from the handle
  * @param id the identifier of the info to get (\see CURL::CURLINFO_ enumerate)
- * @return A return containing the retcode of the operation aswell as the required value
+ * @return A structure containing the retcode of the operation aswell as the required value
  *
  * @see https://curl.se/libcurl/c/curl_easy_getinfo.html
  */
@@ -287,9 +287,9 @@ handle::get_info(int id) noexcept
 
 /**
  * @brief set_opt - Set an option modifying the behaviour of the handle
- * @param id The identifier of the option to set (\see handle::
- * @param val
- * @return
+ * @param id The identifier of the option to set
+ * @param val The value to set the option to
+ * @return A return code described by the \a HDL_RetCode enumerate
  *
  * @see https://curl.se/libcurl/c/curl_easy_setopt.html
  */
@@ -549,6 +549,9 @@ handle::set_cb_debug(TCbDebug cb) noexcept
  * @brief set_cb_done - Set the done callback
  * @param cb The callback called when the transfer is done.
  * @return A return code described by the \a HDL_RetCode enumerate
+ *
+ * @warning If the callback is called with a MDL_RetCode::HDL_MULTI_STOPPED, the handle will be removed from the
+ * session. In that case, you will need to add it again before being able to reuse it.
  */
 handle::HDL_RetCode
 handle::set_cb_done(TCbDone cb) noexcept

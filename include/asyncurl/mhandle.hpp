@@ -6,8 +6,8 @@
 
 /**
  * @file mhandle.hpp
- * @brief Wrapper around curl multi handle
- * \see https://everything.curl.dev/libcurl/drive/multi-socket for more informations
+ * @brief Wrapper around curl multi handle - It represents a session that can own several (thousands) transfers
+ * @see https://everything.curl.dev/libcurl/drive/multi-socket for more informations
  *
  * In a nutshell, here are the key informations to know about the mhandle:
  * <ul>
@@ -21,14 +21,15 @@
 #ifndef INCLUDE_ASYNCURL_MHANDLE_H
 #define INCLUDE_ASYNCURL_MHANDLE_H
 
+#include <any>
 #include <cstddef>    // size_t
 #include <cstdint>    // int64_t
 #include <functional> // std::function
+#include <memory>
+#include <set>
 #include <string>
 
-namespace loop {
-    class Loop;
-}
+#include <Loop.h>
 
 namespace asyncurl
 {
@@ -38,44 +39,50 @@ class handle;
 class mhandle
 {
 public:
-
-    using TCbSocket = std::function<int(void*,int64_t,int,void*,void*)>;
-    using TCbTimer = std::function<int(void*,long,void*)>;
-    using TCbPush = std::function<int(void*,void*,size_t, void*, void*)>;
+    using TCbError = std::function<void(int)>;
 
     /*!
      * @brief MHDL_RetCode describes the return codes of the asyncurl::mhandle class methods
      */
-    typedef enum {
-        MHDL_OK = 0, /*!< OK */
-        MHDL_ADD_OWNED, /*!< An handle who is owned by another mhandle was attempted to get added */
-        MHDL_ADD_ALREADY, /*!< An handle already owned was attempted to get added again */
-        MHDL_REMOVE_OWNED, /*!< An handle who is owned by another mhandle was attempted to get removed */
+    typedef enum
+    {
+        MHDL_OK = 0,         /*!< OK */
+        MHDL_BAD_PARAM,      /*!< An invalid parameter was passed to a function  */
+        MHDL_ADD_OWNED,      /*!< An handle who is owned by another mhandle was attempted to get added */
+        MHDL_ADD_ALREADY,    /*!< An handle already owned was attempted to get added again */
+        MHDL_REMOVE_OWNED,   /*!< An handle who is owned by another mhandle was attempted to get removed */
         MHDL_REMOVE_ALREADY, /*!< An handle already removed (or never added) was attempted to get removed again */
-        MHDL_BAD_HANDLE, /*!< An handle passed-in is not a valid handle */
-        MHDL_OUT_OF_MEM, /*!< An dynamic allocation call failed (you were probably too greedy) */
-        MHDL_INTERNAL_ERROR /*!< Internal error */
+        MHDL_BAD_HANDLE,     /*!< An handle passed-in is not a valid handle */
+        MHDL_OUT_OF_MEM,     /*!< An dynamic allocation call failed (you were probably too greedy) */
+        MHDL_INTERNAL_ERROR  /*!< Internal error */
     } MHDL_RetCode;
 
 private:
-    void* curl_multi__{ nullptr }; /*!< raw curl multi-handle (CURL::CURLM) */
+    void*             curl_multi__{ nullptr }; /*!< Raw curl multi-handle (CURL::CURLM) */
+    std::set<handle*> handles__{};             /*!< Pool of the single transfers */
+    int               running_handles__{ 0 };  /*!< Number of running transfers */
 
-    TCbSocket cb_socket__{};
-    TCbTimer cb_timer__{};
-    TCbPush cb_push__{};
+    TCbError cb_error__{};
 
-    // créer std::unique_ptr<loop::Loop::Timeout> pour les timeouts
-    // créer une std::map<,std::unique_ptr<loop::Loop::IO>>
+    loop::Loop& loop__;
+
+    std::unique_ptr<loop::Loop::Timeout> timeout__{ nullptr };
 
     mhandle(const mhandle&) = delete;
     mhandle& operator=(const mhandle&) = delete;
-    mhandle(mhandle&&) = delete;
+    mhandle(mhandle&&)                 = delete;
     mhandle& operator=(mhandle&&) = delete;
+
+    static int timer_callback(void*, long, void*);
+    static int socket_callback(void*, size_t, int, void*, void*);
 
 protected:
     MHDL_RetCode set_opt_long(int id, long val) noexcept;
     MHDL_RetCode set_opt_ptr(int id, const void* val) noexcept;
     MHDL_RetCode set_opt_bool(int id, bool val) noexcept;
+    MHDL_RetCode set_opt_offset(int id, long val) noexcept;
+
+    void handle_stop(int) noexcept;
 
 public:
     mhandle(loop::Loop&);
@@ -83,19 +90,14 @@ public:
 
     MHDL_RetCode add_handle(handle&) noexcept;
     MHDL_RetCode remove_handle(handle&) noexcept;
+    auto         enumerate_added_handles(void) const noexcept { return std::size(handles__); }
+    auto         enumerate_running_handles(void) const noexcept { return running_handles__; }
 
-    //----- SHOULD PROBABLY BECOME PRIVATE -----//
-    MHDL_RetCode set_pushfunction(TCbPush) noexcept;
-    MHDL_RetCode set_pushdata(void*) noexcept;
+    void set_cb_error(TCbError&) noexcept;
 
-    MHDL_RetCode set_socketfunction(TCbSocket) noexcept;
-    MHDL_RetCode set_socketdata(void*) noexcept;
+    MHDL_RetCode set_opt(int id, std::any val) noexcept;
 
-    MHDL_RetCode set_timerfunction(TCbTimer) noexcept;
-    MHDL_RetCode set_timerdata(void*) noexcept;
-    //------------------------------------------//
-
-    //----- SHOULD PROBABLY BECOME SINGLE CALL -----//
+    // Convenience methods used for setting options
     MHDL_RetCode set_max_concurrent_streams(long) noexcept;
     MHDL_RetCode set_max_host_connections(long) noexcept;
     MHDL_RetCode set_max_pipeline_length(long) noexcept;

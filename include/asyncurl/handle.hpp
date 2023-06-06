@@ -50,6 +50,7 @@ public:
      */
     typedef enum
     {
+        HDL_MULTI_STOPPED, /*!< In case the handle is associated to a multi session, the end of the session */
         HDL_OK = 0,        /*!< OK */
         HDL_BAD_PARAM,     /*!< An invalid parameter was passed to a function */
         HDL_BAD_FUNCTION,  /*!< A function has been called when it should not be */
