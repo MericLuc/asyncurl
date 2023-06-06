@@ -268,11 +268,11 @@ mhandle::set_opt_bool(int id, bool val) noexcept
  *
  * @see https://curl.se/libcurl/c/curl_multi_setopt.html
  */
-handle::HDL_RetCode
-handle::set_opt_offset(int id, long val) noexcept
+mhandle::MHDL_RetCode
+mhandle::set_opt_offset(int id, long val) noexcept
 {
-    if (CURLOPTTYPE_OFF_T != (id / 10000) * 10000) return HDL_BAD_PARAM;
-    return CURLE_OK == curl_easy_setopt(curl_handle__, static_cast<CURLoption>(id), val) ? HDL_OK : HDL_INTERNAL_ERROR;
+    if (CURLOPTTYPE_OFF_T != (id / 10000) * 10000) return MHDL_BAD_PARAM;
+    return CURLE_OK == curl_easy_setopt(curl_multi__, static_cast<CURLoption>(id), val) ? MHDL_OK : MHDL_INTERNAL_ERROR;
 }
 
 /**

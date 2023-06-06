@@ -1,3 +1,5 @@
+project(asyncurl)
+
 set(INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME} )
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
@@ -30,9 +32,8 @@ add_library(
   ${SOURCE_FILES}
 )
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(LIBCURL REQUIRED libcurl)
 find_package(OpenSSL REQUIRED)
+find_package(CURL REQUIRED)
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC
@@ -41,9 +42,10 @@ target_include_directories(${PROJECT_NAME}
         $<INSTALL_INTERFACE:${INSTALL_DIR}/include>
     PRIVATE
         ${LIBCURL_INCLUDE_DIRS}
+        ${CURL_INCLUDE_DIR}
 )
 
-target_link_libraries(${PROJECT_NAME} PUBLIC miniloop libcurl)
+target_link_libraries(${PROJECT_NAME} PUBLIC miniloop ${CURL_LIBRARIES})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(${PROJECT_NAME} PROPERTIES PUBLIC_HEADER "${INCLUDE_HEADER}")

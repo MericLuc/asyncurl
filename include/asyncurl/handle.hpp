@@ -27,6 +27,7 @@
 #include <cstdint>    // int64_t
 #include <functional> // std::function
 #include <string>
+#include <string_view>
 
 namespace asyncurl
 {
@@ -38,10 +39,10 @@ class handle
     friend class mhandle;
 
 public:
-    using TCbWrite    = std::function<size_t(char*, size_t, size_t, void*)>;
-    using TCbRead     = std::function<size_t(char*, size_t, size_t, void*)>;
-    using TCbProgress = std::function<int(void*, int64_t, int64_t, int64_t, int64_t)>; // curl_off_t <- int64_t
-    using TCbHeader   = std::function<size_t(char*, size_t, size_t, void*)>;
+    using TCbWrite    = std::function<size_t(char*, size_t)>;
+    using TCbRead     = std::function<size_t(char*, size_t)>;
+    using TCbProgress = std::function<int(int64_t, int64_t, int64_t, int64_t)>;
+    using TCbHeader   = std::function<size_t(char*, size_t)>;
     using TCbDebug    = std::function<int(void*, int, char*, size_t, void*)>;
     using TCbDone     = std::function<void(int)>;
 
@@ -50,12 +51,12 @@ public:
      */
     typedef enum
     {
-        HDL_MULTI_STOPPED, /*!< In case the handle is associated to a multi session, the end of the session */
-        HDL_OK = 0,        /*!< OK */
-        HDL_BAD_PARAM,     /*!< An invalid parameter was passed to a function */
-        HDL_BAD_FUNCTION,  /*!< A function has been called when it should not be */
-        HDL_OUT_OF_MEM,    /*!< An dynamic allocation call failed (you were probably too greedy) */
-        HDL_INTERNAL_ERROR /*!< Internal error */
+        HDL_MULTI_STOPPED = -1, /*!< In case the handle is associated to a multi session, the end of the session */
+        HDL_OK            = 0,  /*!< OK */
+        HDL_BAD_PARAM,          /*!< An invalid parameter was passed to a function */
+        HDL_BAD_FUNCTION,       /*!< A function has been called when it should not be */
+        HDL_OUT_OF_MEM,         /*!< An dynamic allocation call failed (you were probably too greedy) */
+        HDL_INTERNAL_ERROR      /*!< Internal error */
     } HDL_RetCode;
 
     /**
@@ -104,12 +105,12 @@ public:
 
     void* raw(void) noexcept;
 
-    HDL_RetCode set_cb_write(TCbWrite) noexcept;
-    HDL_RetCode set_cb_read(TCbRead) noexcept;
-    HDL_RetCode set_cb_progress(TCbProgress) noexcept;
-    HDL_RetCode set_cb_header(TCbHeader) noexcept;
-    HDL_RetCode set_cb_debug(TCbDebug) noexcept;
-    HDL_RetCode set_cb_done(TCbDone) noexcept;
+    HDL_RetCode set_cb_write(const TCbWrite&) noexcept;
+    HDL_RetCode set_cb_read(const TCbRead&) noexcept;
+    HDL_RetCode set_cb_progress(const TCbProgress&) noexcept;
+    HDL_RetCode set_cb_header(const TCbHeader&) noexcept;
+    HDL_RetCode set_cb_debug(const TCbDebug&) noexcept;
+    HDL_RetCode set_cb_done(const TCbDone&) noexcept;
 
     HDL_RetCode perform_blocking(void) noexcept;
     void        reset(void) noexcept;
@@ -120,6 +121,8 @@ public:
 
     handle_ret  get_info(int id) noexcept;
     HDL_RetCode set_opt(int id, std::any val) noexcept;
+
+    static std::string_view retCode2Str(HDL_RetCode) noexcept;
 };
 
 } // namespace asyncurl

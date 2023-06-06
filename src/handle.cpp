@@ -8,10 +8,17 @@
 #include <asyncurl/mhandle.hpp>
 #include <curl/curl.h>
 
+#include <map>
 #include <stdexcept>
 
 namespace asyncurl
 {
+typedef size_t (*CURL_WRITEFUNCTION_PTR)(char*, size_t, size_t, void*);
+typedef size_t (*CURL_READFUNCTION_PTR)(char*, size_t, size_t, void*);
+typedef int (*CURL_PROGRESSFUNCTION_PTR)(void*, curl_off_t, curl_off_t, curl_off_t, curl_off_t);
+typedef size_t (*CURL_BUFFERFUNCTION_PTR)(char*, size_t, size_t, void*);
+typedef int (*CURL_DEBUGFUNCTION_PTR)(CURL*, curl_infotype, char*, size_t, void*);
+
 //---------------------------------------------------------------------------------------------------------------------
 // CONSTRUCTORS/DESTRUCTOR
 //---------------------------------------------------------------------------------------------------------------------
@@ -26,6 +33,9 @@ handle::handle()
 
     set_opt_ptr(CURLOPT_PRIVATE, this);
     set_opt_bool(CURLOPT_NOSIGNAL, true); // multi-threaded applications
+
+    // Setup to do nothing, otherwise data will be outputed to standard output stream
+    set_cb_write([](char*, size_t sz) -> size_t { return sz; });
 }
 
 /**
@@ -319,7 +329,13 @@ handle::set_opt(int id, std::any val) noexcept
     }
     else if (CURLOPTTYPE_OBJECTPOINT == curType)
     {
-        ret = set_opt_ptr(id, std::any_cast<void*>(val));
+        try
+        {
+            auto s = std::any_cast<void*>(val);
+            ret    = set_opt_ptr(id, s);
+        }
+        catch (const std::bad_any_cast& e)
+        {}
     }
 
     return ret;
@@ -384,7 +400,7 @@ handle::reset(void) noexcept
  * @return A return code described by the \a HDL_RetCode enumerate
  */
 handle::HDL_RetCode
-handle::set_cb_write(TCbWrite cb) noexcept
+handle::set_cb_write(const TCbWrite& cb) noexcept
 {
     // See https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html
     constexpr auto _hidden{ [](char*  ptr,   // delivered data
@@ -394,7 +410,8 @@ handle::set_cb_write(TCbWrite cb) noexcept
         auto       This{ static_cast<handle*>(userdata) };
 
         if (nullptr == This) return 0;
-        auto       ret{ This->cb_write__(ptr, size, nmemb, userdata) };
+
+        auto       ret{ This->cb_write__(ptr, size * nmemb) };
 
         // This is a magic return code for the write callback that, when returned, will signal libcurl to pause
         // receiving on the current transfer.
@@ -406,7 +423,7 @@ handle::set_cb_write(TCbWrite cb) noexcept
 
     cb_write__ = cb;
 
-    auto ret{ curl_easy_setopt(curl_handle__, CURLOPT_WRITEFUNCTION, _hidden) };
+    auto ret{ curl_easy_setopt(curl_handle__, CURLOPT_WRITEFUNCTION, static_cast<CURL_WRITEFUNCTION_PTR>(_hidden)) };
     if (CURLE_OK == ret) set_opt_ptr(CURLOPT_WRITEDATA, this);
 
     return (CURLE_OK == ret) ? HDL_OK : HDL_INTERNAL_ERROR;
@@ -419,7 +436,7 @@ handle::set_cb_write(TCbWrite cb) noexcept
  * @return A return code described by the \a HDL_RetCode enumerate
  */
 handle::HDL_RetCode
-handle::set_cb_read(TCbRead cb) noexcept
+handle::set_cb_read(const TCbRead& cb) noexcept
 {
     // See https://curl.se/libcurl/c/CURLOPT_READFUNCTION.html
     constexpr auto _hidden{ [](char*  buffer, // delivered data
@@ -430,7 +447,7 @@ handle::set_cb_read(TCbRead cb) noexcept
 
         if (nullptr == This) return 0; // Abort the transfert
 
-        auto       ret{ This->cb_read__(buffer, size, nitems, userdata) };
+        auto       ret{ This->cb_read__(buffer, size * nitems) };
 
         // This is a magic return code for the read callback that, when returned, will signal libcurl to pause
         // sending on the current transfer.
@@ -442,7 +459,7 @@ handle::set_cb_read(TCbRead cb) noexcept
 
     cb_read__ = cb;
 
-    auto ret{ curl_easy_setopt(curl_handle__, CURLOPT_READFUNCTION, _hidden) };
+    auto ret{ curl_easy_setopt(curl_handle__, CURLOPT_READFUNCTION, static_cast<CURL_READFUNCTION_PTR>(_hidden)) };
     if (CURLE_OK == ret) set_opt_ptr(CURLOPT_READDATA, this);
 
     return (CURLE_OK == ret) ? HDL_OK : HDL_INTERNAL_ERROR;
@@ -455,7 +472,7 @@ handle::set_cb_read(TCbRead cb) noexcept
  * @return A return code described by the \a HDL_RetCode enumerate
  */
 handle::HDL_RetCode
-handle::set_cb_progress(TCbProgress cb) noexcept
+handle::set_cb_progress(const TCbProgress& cb) noexcept
 {
     // See https://curl.se/libcurl/c/CURLOPT_XFERINFOFUNCTION.html
     constexpr auto _hidden{ [](void*      clientp, // pointer set with CURLOPT_XFERINFODATA
@@ -463,17 +480,19 @@ handle::set_cb_progress(TCbProgress cb) noexcept
                                curl_off_t dlnow,   // number of bytes downloaded so far
                                curl_off_t ultotal, //  total number of bytes expected to upload in this transfer
                                curl_off_t ulnow    // number of bytes uploaded so far
-                               ) -> size_t {
+                               ) -> int {
         auto       This{ static_cast<handle*>(clientp) };
 
         if (nullptr == This) return 0; // Abort the transfert
 
-        return This->cb_progress__(clientp, dltotal, dlnow, ultotal, ulnow);
+        return This->cb_progress__(dltotal, dlnow, ultotal, ulnow);
     } };
 
     cb_progress__ = cb;
 
-    auto ret{ curl_easy_setopt(curl_handle__, CURLOPT_READFUNCTION, _hidden) };
+    auto ret{
+        curl_easy_setopt(curl_handle__, CURLOPT_XFERINFOFUNCTION, static_cast<CURL_PROGRESSFUNCTION_PTR>(_hidden))
+    };
     if (CURLE_OK == ret)
     {
         set_opt_ptr(CURLOPT_XFERINFODATA, this);
@@ -490,7 +509,7 @@ handle::set_cb_progress(TCbProgress cb) noexcept
  * @return A return code described by the \a HDL_RetCode enumerate
  */
 handle::HDL_RetCode
-handle::set_cb_header(TCbHeader cb) noexcept
+handle::set_cb_header(const TCbHeader& cb) noexcept
 {
     // See https://curl.se/libcurl/c/CURLOPT_HEADERFUNCTION.html
     constexpr auto _hidden{ [](char*  buffer,  // points to the delivered data
@@ -502,12 +521,12 @@ handle::set_cb_header(TCbHeader cb) noexcept
 
         if (nullptr == This) return 0; // Abort the transfert
 
-        return This->cb_header__(buffer, size, nitems, userdata);
+        return This->cb_header__(buffer, size * nitems);
     } };
 
     cb_header__ = cb;
 
-    auto ret{ curl_easy_setopt(curl_handle__, CURLOPT_HEADERFUNCTION, _hidden) };
+    auto ret{ curl_easy_setopt(curl_handle__, CURLOPT_HEADERFUNCTION, static_cast<CURL_BUFFERFUNCTION_PTR>(_hidden)) };
     if (CURLE_OK == ret) set_opt_ptr(CURLOPT_HEADERDATA, this);
 
     return (CURLE_OK == ret) ? HDL_OK : HDL_INTERNAL_ERROR;
@@ -521,7 +540,7 @@ handle::set_cb_header(TCbHeader cb) noexcept
  * @note The callback must return 0
  */
 handle::HDL_RetCode
-handle::set_cb_debug(TCbDebug cb) noexcept
+handle::set_cb_debug(const TCbDebug& cb) noexcept
 {
     // See https://curl.se/libcurl/c/CURLOPT_DEBUGFUNCTION.html
     constexpr auto _hidden{ [](CURL*         hndl,   // the easy handle of the transfer
@@ -539,7 +558,7 @@ handle::set_cb_debug(TCbDebug cb) noexcept
 
     cb_debug__ = cb;
 
-    auto ret{ curl_easy_setopt(curl_handle__, CURLOPT_DEBUGFUNCTION, _hidden) };
+    auto ret{ curl_easy_setopt(curl_handle__, CURLOPT_DEBUGFUNCTION, static_cast<CURL_DEBUGFUNCTION_PTR>(_hidden)) };
     if (CURLE_OK == ret) set_opt_ptr(CURLOPT_DEBUGDATA, this);
 
     return (CURLE_OK == ret) ? HDL_OK : HDL_INTERNAL_ERROR;
@@ -554,10 +573,28 @@ handle::set_cb_debug(TCbDebug cb) noexcept
  * session. In that case, you will need to add it again before being able to reuse it.
  */
 handle::HDL_RetCode
-handle::set_cb_done(TCbDone cb) noexcept
+handle::set_cb_done(const TCbDone& cb) noexcept
 {
     cb_done__ = cb;
     return HDL_OK;
+}
+
+/**
+ * @brief retCode2Str - Gives a human readable string for each retcodes
+ * @param rc The retcode
+ * @return A human-readable representation of the retcode meaning
+ */
+std::string_view
+handle::retCode2Str(handle::HDL_RetCode rc) noexcept
+{
+    static const std::map<HDL_RetCode, std::string> _retcodeMap{ { HDL_MULTI_STOPPED, "multi-session stopped" },
+                                                                 { HDL_OK, "ok" },
+                                                                 { HDL_BAD_PARAM, "bad parameter" },
+                                                                 { HDL_BAD_FUNCTION, "bad function call" },
+                                                                 { HDL_OUT_OF_MEM, "out of memory" },
+                                                                 { HDL_INTERNAL_ERROR, "internal error" } };
+
+    return _retcodeMap.at(rc);
 }
 
 } // namespace asyncurl
