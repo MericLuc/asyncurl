@@ -74,6 +74,7 @@ mhandle::socket_callback(void* easy, size_t s, int what, void* clientp, void* so
         io = This->ios__[hdl].get();
         io->onEvent([This, io](int evt) {
             int evt_bitmask{ 0 };
+            int rhandles{ This->running_handles__ };
 
             if (evt & Loop::IO::READ) evt_bitmask |= CURL_CSELECT_IN;
             if (evt & Loop::IO::WRITE) evt_bitmask |= CURL_CSELECT_OUT;
@@ -85,7 +86,7 @@ mhandle::socket_callback(void* easy, size_t s, int what, void* clientp, void* so
                 This->handle_stop(ret);
                 return;
             }
-            This->handle_msgs();
+            if (This->running_handles__ != rhandles) This->handle_msgs();
         });
 
         curl_multi_assign(This->curl_multi__, s, io);
@@ -126,13 +127,16 @@ mhandle::mhandle(loop::Loop& loop)
 
     // Setup timer callback and data
     timeout__->onTimeout([this]() {
+        int rhandles{ this->running_handles__ };
+
         if (auto ret = curl_multi_socket_action(this->curl_multi__, CURL_SOCKET_TIMEOUT, 0, &this->running_handles__);
             CURLM_OK != ret)
         {
             this->handle_stop(ret);
             return;
         }
-        this->handle_msgs();
+
+        if (this->running_handles__ != rhandles) this->handle_msgs();
     });
     curl_multi_setopt(curl_multi__, CURLMOPT_TIMERDATA, this);
     curl_multi_setopt(curl_multi__, CURLMOPT_TIMERFUNCTION, timer_callback);
@@ -189,6 +193,7 @@ mhandle::add_handle(handle& h) noexcept
                 this->handle_stop(ret);
                 return MHDL_INTERNAL_ERROR;
             }
+            this->handle_msgs();
         }
         return MHDL_OK;
     }

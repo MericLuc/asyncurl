@@ -51,7 +51,9 @@ Here are the basic rules to respect to make sure your transfers go smoothly :
 
 When a transfer is done, you might want to rerun it (as it, or by modifying before).
 
-To do so, you should re-add your transfer to the session by successively calling `mhandle::remove_handle()` and `mhandle::add_handle()`.
+To do so, you can simply add it again to the session by calling `mhandle::add_handle()`.
+
+This can even be done directly within the done callback (allthough you might wanna be carefull not to loop forever here...).
 
 **What about multi-threading?**
 
