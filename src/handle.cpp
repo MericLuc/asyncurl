@@ -71,7 +71,8 @@ handle::raw(void) noexcept
 //---------------------------------------------------------------------------------------------------------------------
 
 /**
- * @brief pause pause the transfer in one or both directions
+ * @brief pause - Pause the transfer in one or both directions
+ *
  * @param bitmask CURL pause mask (CURLPAUSE_RECV, CURLPAUSE_SEND, CURLPAUSE_ALL, CURLPAUSE_CONT)
  * @return true if the command was successfull, false otherwise
  */
@@ -84,7 +85,8 @@ handle::pause(int bitmask) noexcept
 }
 
 /**
- * @brief is_paused test if the transfer is paused in one or both directions
+ * @brief is_paused - Test if the transfer is paused in one or both directions
+ *
  * @param bitmask CURL pause mask (CURLPAUSE_RECV, CURLPAUSE_SEND, CURLPAUSE_ALL, CURLPAUSE_CONT)
  * @return true if the transfer is paused in the required direction(s), false otherwise
  */
@@ -95,7 +97,8 @@ handle::is_paused(int bitmask) noexcept
 }
 
 /**
- * @brief unpause unpause the transfer in one or both directions
+ * @brief unpause - Unpause the transfer in one or both directions
+ *
  * @param bitmask CURL pause mask (CURLPAUSE_RECV, CURLPAUSE_SEND, CURLPAUSE_ALL, CURLPAUSE_CONT)
  * @return true if the command was successfull, false otherwise
  */
@@ -408,10 +411,11 @@ handle::set_cb_write(const TCbWrite& cb) noexcept
                                size_t nmemb, // size of the data
                                void*  userdata) -> size_t {
         auto       This{ static_cast<handle*>(userdata) };
+        size_t     ret{ 0 };
 
         if (nullptr == This) return 0;
 
-        auto       ret{ This->cb_write__(ptr, size * nmemb) };
+        if (This->cb_write__) ret = This->cb_write__(ptr, size * nmemb);
 
         // This is a magic return code for the write callback that, when returned, will signal libcurl to pause
         // receiving on the current transfer.
@@ -444,10 +448,11 @@ handle::set_cb_read(const TCbRead& cb) noexcept
                                size_t nitems, // size of the data
                                void*  userdata) -> size_t {
         auto       This{ static_cast<handle*>(userdata) };
+        size_t     ret{ 0 };
 
         if (nullptr == This) return 0; // Abort the transfert
 
-        auto       ret{ This->cb_read__(buffer, size * nitems) };
+        if (This->cb_read__) ret = This->cb_read__(buffer, size * nitems);
 
         // This is a magic return code for the read callback that, when returned, will signal libcurl to pause
         // sending on the current transfer.
@@ -482,10 +487,12 @@ handle::set_cb_progress(const TCbProgress& cb) noexcept
                                curl_off_t ulnow    // number of bytes uploaded so far
                                ) -> int {
         auto       This{ static_cast<handle*>(clientp) };
+        int        ret{ 0 };
 
         if (nullptr == This) return 0; // Abort the transfert
 
-        return This->cb_progress__(dltotal, dlnow, ultotal, ulnow);
+        if (This->cb_progress__) ret = This->cb_progress__(dltotal, dlnow, ultotal, ulnow);
+        return ret;
     } };
 
     cb_progress__ = cb;
@@ -518,10 +525,13 @@ handle::set_cb_header(const TCbHeader& cb) noexcept
                                void*  userdata // pointer set with the CURLOPT_HEADERDATA option
                                ) -> size_t {
         auto       This{ static_cast<handle*>(userdata) };
+        size_t     ret{ 0 };
 
         if (nullptr == This) return 0; // Abort the transfert
 
-        return This->cb_header__(buffer, size * nitems);
+        if (This->cb_header__) ret = This->cb_header__(buffer, size * nitems);
+
+        return ret;
     } };
 
     cb_header__ = cb;
@@ -550,10 +560,13 @@ handle::set_cb_debug(const TCbDebug& cb) noexcept
                                void*         clientp // pointer set with the CURLOPT_DEBUGDATA option
                                ) -> int {
         auto       This{ static_cast<handle*>(clientp) };
+        int        ret{ 0 };
 
         if (nullptr == This) return 0; // Nothing happens
 
-        return This->cb_debug__(hndl, type, data, size, clientp);
+        if (This->cb_debug__) ret = This->cb_debug__(hndl, type, data, size, clientp);
+
+        return ret;
     } };
 
     cb_debug__ = cb;
@@ -566,11 +579,13 @@ handle::set_cb_debug(const TCbDebug& cb) noexcept
 
 /**
  * @brief set_cb_done - Set the done callback
+ *
  * @param cb The callback called when the transfer is done.
  * @return A return code described by the \a HDL_RetCode enumerate
  *
- * @warning If the callback is called with a MDL_RetCode::HDL_MULTI_STOPPED, the handle will be removed from the
- * session. In that case, you will need to add it again before being able to reuse it.
+ * @warning In asynchronous mode, when you enter this callback, the handle has been released by the session.
+ * So you can immediately ask for a new transfer within the callback by calling mhandle::add_handle() again.
+ * @warning In asynchronous mode, if the code is MDL_RetCode::HDL_MULTI_STOPPED, you can not use the session again.
  */
 handle::HDL_RetCode
 handle::set_cb_done(const TCbDone& cb) noexcept
@@ -581,6 +596,7 @@ handle::set_cb_done(const TCbDone& cb) noexcept
 
 /**
  * @brief retCode2Str - Gives a human readable string for each retcodes
+ *
  * @param rc The retcode
  * @return A human-readable representation of the retcode meaning
  */

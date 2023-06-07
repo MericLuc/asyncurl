@@ -14,5 +14,6 @@
 #define INCLUDE_ASYNCURL_ASYNCURL_H
 
 #include "handle.hpp"
+#include "mhandle.hpp"
 
 #endif // INCLUDE_ASYNCURL_ASYNCURL_H

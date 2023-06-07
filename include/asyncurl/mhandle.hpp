@@ -25,11 +25,15 @@
 #include <cstddef>    // size_t
 #include <cstdint>    // int64_t
 #include <functional> // std::function
+#include <map>
 #include <memory>
-#include <set>
 #include <string>
+#include <string_view>
 
 #include <Loop.h>
+
+template<class T>
+using uptr = std::unique_ptr<T>;
 
 namespace asyncurl
 {
@@ -58,15 +62,16 @@ public:
     } MHDL_RetCode;
 
 private:
-    void*             curl_multi__{ nullptr }; /*!< Raw curl multi-handle (CURL::CURLM) */
-    std::set<handle*> handles__{};             /*!< Pool of the single transfers */
-    int               running_handles__{ 0 };  /*!< Number of running transfers */
+    void*                                 curl_multi__{ nullptr }; /*!< Raw curl multi-handle (CURL::CURLM) */
+    std::map<void*, handle*>              handles__{};             /*!< Pool of the single transfers */
+    std::map<void*, uptr<loop::Loop::IO>> ios__{};                 /*!< Pool of IOs */
+    int running_handles__{ 0 }; /*!< Number of running transfers - or -1 in case of stop */
 
     TCbError cb_error__{};
 
     loop::Loop& loop__;
 
-    std::unique_ptr<loop::Loop::Timeout> timeout__{ nullptr };
+    uptr<loop::Loop::Timeout> timeout__{ nullptr };
 
     mhandle(const mhandle&) = delete;
     mhandle& operator=(const mhandle&) = delete;
@@ -83,6 +88,7 @@ protected:
     MHDL_RetCode set_opt_offset(int id, long val) noexcept;
 
     void handle_stop(int) noexcept;
+    void handle_msgs(void) noexcept;
 
 public:
     mhandle(loop::Loop&);
@@ -107,6 +113,8 @@ public:
     //----------------------------------------------//
 
     void* raw(void) noexcept;
+
+    static std::string_view retCode2Str(MHDL_RetCode) noexcept;
 };
 
 } // namespace asyncurl

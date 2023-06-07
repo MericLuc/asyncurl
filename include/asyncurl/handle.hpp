@@ -75,12 +75,12 @@ private:
     void*    curl_handle__{ nullptr }; /*< CURL easy handle - you do NOT want to mess with this */
     int      flags__{ 0 };
 
-    TCbWrite    cb_write__{};
-    TCbRead     cb_read__{};
-    TCbProgress cb_progress__{};
-    TCbHeader   cb_header__{};
-    TCbDebug    cb_debug__{};
-    TCbDone     cb_done__{};
+    TCbWrite    cb_write__{ nullptr };
+    TCbRead     cb_read__{ nullptr };
+    TCbProgress cb_progress__{ nullptr };
+    TCbHeader   cb_header__{ nullptr };
+    TCbDebug    cb_debug__{ nullptr };
+    TCbDone     cb_done__{ nullptr };
 
     handle(const handle&) = delete;
     handle& operator=(const handle&) = delete;
