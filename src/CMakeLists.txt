@@ -6,7 +6,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_definitions("-Wall -g -O3")
+# add_definitions("-Wall -g -O0")
 
 # Directories are created with 0755 permissions
 set(CMAKE_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS

@@ -69,7 +69,8 @@ mhandle::socket_callback(void* easy, size_t s, int what, void* clientp, void* so
 
     if (nullptr == io)
     {
-        This->ios__[hdl] = std::make_unique<Loop::IO>(s, This->loop__);
+        if (std::end(This->ios__) == This->ios__.find(hdl))
+            This->ios__[hdl] = std::make_unique<Loop::IO>(s, This->loop__);
 
         io = This->ios__[hdl].get();
         io->onEvent([This, io](int evt) {
@@ -216,16 +217,11 @@ mhandle::remove_handle(handle& h) noexcept
     if (this != h.multi_handler__) return MHDL_REMOVE_OWNED;
 
     CURL* raw{ static_cast<CURL*>(h.raw()) };
-    if (auto ret{ curl_multi_remove_handle(curl_multi__, raw) }; CURLM_OK == ret)
-    {
-        h.multi_handler__ = nullptr;
-        if (std::end(handles__) != handles__.find(raw)) handles__.erase(raw);
-        if (std::end(ios__) != ios__.find(raw)) ios__.erase(raw);
+    h.multi_handler__ = nullptr;
+    if (std::end(handles__) != handles__.find(raw)) handles__.erase(raw);
+    if (std::end(ios__) != ios__.find(raw)) ios__.erase(raw);
 
-        return MHDL_OK;
-    }
-
-    return MHDL_INTERNAL_ERROR;
+    return (CURLM_OK == curl_multi_remove_handle(curl_multi__, raw)) ? MHDL_OK : MHDL_INTERNAL_ERROR;
 }
 
 /**
