@@ -54,6 +54,24 @@ handle::~handle() noexcept
 }
 
 /**
+ * @brief handle::copy - Perform a copy of internal data
+ *
+ * Allows to avoid repeating series of set_opt()...
+ * @return A new handle that you are responsible for
+ *
+ * @note You will still need to setup the required callbacks yourself
+ */
+handle*
+handle::copy() noexcept
+{
+    handle* ret{ new handle() };
+
+    ret->curl_handle__ = curl_easy_duphandle(curl_handle__);
+
+    return ret;
+}
+
+/**
  * @brief raw get the raw curl easy-handle (CURL::handle)
  * @warning You should not be using this, unless you absolutely need to use curl features that are not provided by
  * the \a asyncurl library.

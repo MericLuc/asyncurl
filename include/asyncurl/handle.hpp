@@ -103,6 +103,8 @@ public:
     handle();
     ~handle() noexcept;
 
+    handle* copy() noexcept;
+
     void* raw(void) noexcept;
 
     HDL_RetCode set_cb_write(const TCbWrite&) noexcept;
