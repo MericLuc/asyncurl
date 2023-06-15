@@ -26,12 +26,14 @@
 #include <cstddef>    // size_t
 #include <cstdint>    // int64_t
 #include <functional> // std::function
+#include <map>
 #include <string>
 #include <string_view>
 
 namespace asyncurl
 {
 class mhandle;
+class list;
 
 /*********************************************************************************************************************/
 class handle
@@ -71,9 +73,11 @@ public:
     };
 
 private:
-    mhandle* multi_handler__{ nullptr };
-    void*    curl_handle__{ nullptr }; /*< CURL easy handle - you do NOT want to mess with this */
-    int      flags__{ 0 };
+    mhandle*                   multi_handler__{ nullptr };
+    void*                      curl_handle__{ nullptr }; /*< CURL easy handle - you do NOT want to mess with this */
+    int                        flags__{ 0 };
+    std::map<int, list>        lists__;
+    std::map<int, std::string> strings__;
 
     TCbWrite    cb_write__{ nullptr };
     TCbRead     cb_read__{ nullptr };
@@ -87,17 +91,21 @@ private:
     handle(handle&&)                 = delete;
     handle& operator=(handle&&) = delete;
 
+    handle(void*);
+
 protected:
     HDL_RetCode get_info_long(int, long&) const noexcept;
     HDL_RetCode get_info_socket(int, uint64_t&) const noexcept;
     HDL_RetCode get_info_double(int, double&) const noexcept;
     HDL_RetCode get_info_string(int, std::string&) const noexcept;
+    HDL_RetCode get_info_list(int id, list& val) const noexcept;
 
     HDL_RetCode set_opt_long(int id, long val) noexcept;
     HDL_RetCode set_opt_offset(int id, long val) noexcept;
     HDL_RetCode set_opt_ptr(int id, const void* val) noexcept;
     HDL_RetCode set_opt_string(int id, const char* val) noexcept;
     HDL_RetCode set_opt_bool(int id, bool val) noexcept;
+    HDL_RetCode set_opt_list(int id, const list& val) noexcept;
 
 public:
     handle();

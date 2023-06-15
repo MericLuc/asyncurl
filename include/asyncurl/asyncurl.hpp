@@ -15,5 +15,6 @@
 
 #include "handle.hpp"
 #include "mhandle.hpp"
+#include "list.hpp"
 
 #endif // INCLUDE_ASYNCURL_ASYNCURL_H

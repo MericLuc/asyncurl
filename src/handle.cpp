@@ -5,6 +5,7 @@
  */
 
 #include <asyncurl/handle.hpp>
+#include <asyncurl/list.hpp>
 #include <asyncurl/mhandle.hpp>
 #include <curl/curl.h>
 
@@ -22,6 +23,18 @@ typedef int (*CURL_DEBUGFUNCTION_PTR)(CURL*, curl_infotype, char*, size_t, void*
 //---------------------------------------------------------------------------------------------------------------------
 // CONSTRUCTORS/DESTRUCTOR
 //---------------------------------------------------------------------------------------------------------------------
+
+handle::handle(void* curl)
+{
+    curl_handle__ = static_cast<CURL*>(curl);
+
+    if (nullptr == curl_handle__) throw std::runtime_error("Unable to creat a session handle");
+
+    set_opt_ptr(CURLOPT_PRIVATE, this);
+    set_opt_bool(CURLOPT_NOSIGNAL, true);
+
+    set_cb_write([](char*, size_t sz) -> size_t { return sz; });
+}
 
 /**
  * @brief default constructor
@@ -64,9 +77,13 @@ handle::~handle() noexcept
 handle*
 handle::copy() noexcept
 {
-    handle* ret{ new handle() };
+    handle* ret{ new handle(curl_easy_duphandle(curl_handle__)) };
 
-    ret->curl_handle__ = curl_easy_duphandle(curl_handle__);
+    for (const auto& [id, l] : lists__)
+        ret->set_opt_list(id, l);
+
+    for (const auto& [id, str] : strings__)
+        ret->set_opt_string(id, str.c_str());
 
     return ret;
 }
@@ -199,6 +216,29 @@ handle::get_info_string(int id, std::string& val) const noexcept
 }
 
 /**
+ * @brief get_info_list - Get an information element of type list
+ * @param id The information's id to get
+ * @param val The variable to stock the result to
+ * @return A return code described by the \a HDL_RetCode enumerate
+ *
+ * @see https://curl.se/libcurl/c/curl_easy_getinfo.html
+ */
+handle::HDL_RetCode
+handle::get_info_list(int id, list& val) const noexcept
+{
+    struct curl_slist* v{ nullptr };
+    if (CURLINFO_SLIST != (id & CURLINFO_TYPEMASK)) return HDL_BAD_PARAM;
+
+    auto ret{ curl_easy_getinfo(curl_handle__, static_cast<CURLINFO>(id), &v) };
+    if (CURLE_OK == ret)
+    {
+        val = list(v, list::owns);
+        return HDL_OK;
+    }
+    return HDL_INTERNAL_ERROR;
+}
+
+/**
  * @brief Set an information element of type long
  * @param id The information's id to set
  * @param val The value to set
@@ -255,7 +295,11 @@ handle::HDL_RetCode
 handle::set_opt_string(int id, const char* val) noexcept
 {
     if (CURLOPTTYPE_STRINGPOINT != (id / 10000) * 10000) return HDL_BAD_PARAM;
-    return CURLE_OK == curl_easy_setopt(curl_handle__, static_cast<CURLoption>(id), val) ? HDL_OK : HDL_INTERNAL_ERROR;
+
+    strings__[id] = val;
+    return CURLE_OK == curl_easy_setopt(curl_handle__, static_cast<CURLoption>(id), strings__[id].c_str())
+             ? HDL_OK
+             : HDL_INTERNAL_ERROR;
 }
 
 /**
@@ -273,6 +317,31 @@ handle::set_opt_bool(int id, bool val) noexcept
 }
 
 /**
+ * @brief Set an information element of type list
+ * @param id The information's id to set
+ * @param val The value to set
+ * @return A return code described by the \a HDL_RetCode enumerate
+ *
+ * @see https://curl.se/libcurl/c/curl_easy_setopt.html
+ */
+handle::HDL_RetCode
+handle::set_opt_list(int id, const list& val) noexcept
+{
+    lists__[id] = val;
+    if (CURLOPTTYPE_SLISTPOINT != (id / 10000) * 10000) return HDL_BAD_PARAM;
+
+    auto ret{ curl_easy_setopt(curl_handle__, static_cast<CURLoption>(id), lists__[id].head__) };
+
+    if (CURLE_OK != ret)
+    {
+        lists__.erase(id);
+        return HDL_INTERNAL_ERROR;
+    }
+
+    return HDL_OK;
+}
+
+/**
  * @brief get_info - retrieve an information from the handle
  * @param id the identifier of the info to get (\see CURL::CURLINFO_ enumerate)
  * @return A structure containing the retcode of the operation aswell as the required value
@@ -286,6 +355,11 @@ handle::get_info(int id) noexcept
 
     switch (id & CURLINFO_TYPEMASK)
     {
+        case CURLINFO_SLIST: {
+            list val;
+            if (ret.ret = get_info_list(id, val); HDL_OK == ret.ret) ret.value = val;
+        }
+        break;
         case CURLINFO_DOUBLE: {
             double val;
             if (ret.ret = get_info_double(id, val); HDL_OK == ret.ret) ret.value = val;
@@ -332,7 +406,11 @@ handle::set_opt(int id, std::any val) noexcept
 
     if (!val.has_value()) return ret;
 
-    if (typeid(long) == val.type() && (CURLOPTTYPE_LONG == curType))
+    if (typeid(list) == val.type() && (CURLOPTTYPE_SLISTPOINT == curType))
+    {
+        ret = set_opt_list(id, std::any_cast<list>(val));
+    }
+    else if (typeid(long) == val.type() && (CURLOPTTYPE_LONG == curType))
     {
         ret = set_opt_long(id, std::any_cast<long>(val));
     }
@@ -342,7 +420,7 @@ handle::set_opt(int id, std::any val) noexcept
     }
     else if (typeid(std::string) == val.type() && (CURLOPTTYPE_STRINGPOINT == curType))
     {
-        ret = set_opt_string(id, std::any_cast<std::string>(val).c_str());
+        ret = set_opt_string(id, std::any_cast<const std::string&>(val).c_str());
     }
     else if (typeid(bool) == val.type() && (CURLOPTTYPE_LONG == curType))
     {
@@ -406,6 +484,8 @@ handle::reset(void) noexcept
     cb_header__   = {};
     cb_debug__    = {};
     cb_done__     = {};
+    lists__.clear();
+    strings__.clear();
 
     flags__ = 0;
 }
