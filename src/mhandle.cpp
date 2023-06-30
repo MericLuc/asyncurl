@@ -218,10 +218,13 @@ mhandle::remove_handle(handle& h) noexcept
 
     CURL* raw{ static_cast<CURL*>(h.raw()) };
     h.multi_handler__ = nullptr;
+
+    auto ret = (CURLM_OK == curl_multi_remove_handle(curl_multi__, raw)) ? MHDL_OK : MHDL_INTERNAL_ERROR;
+
     if (std::end(handles__) != handles__.find(raw)) handles__.erase(raw);
     if (std::end(ios__) != ios__.find(raw)) ios__.erase(raw);
 
-    return (CURLM_OK == curl_multi_remove_handle(curl_multi__, raw)) ? MHDL_OK : MHDL_INTERNAL_ERROR;
+    return ret;
 }
 
 /**
