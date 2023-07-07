@@ -9,11 +9,11 @@
  * <li>3 - Add your transfer to the session and let your loop do the magic </li>
  * </ul>
  *
- * In this example, we setup a transfer to download the README of asyncurl 5 times :)
+ * In this example, we setup a transfer to download the README of this project :)
  */
 
-#include <Loop.h>
 #include <asyncurl/asyncurl.hpp>
+#include <miniLoop/Loop.h>
 
 #include <curl/curl.h> // Convenient to get access to handle options (CURLOPT)
 #include <fstream>     // Write to file
@@ -24,8 +24,8 @@
 using namespace asyncurl;
 using namespace loop;
 
-#define OUTPUT_FILENAME "nonblocking_output"
-#define URL "https://lhm-pc.osmozisdev.com/common/docs/asyncurl"
+#define OUTPUT_FILENAME "output.txt"
+#define URL "https://raw.githubusercontent.com/MericLuc/asyncurl/v1/README.md"
 
 int
 main()
@@ -33,13 +33,13 @@ main()
     // 0 - We setup everything we need
     Loop myLoop;
 
-    auto sigintEvt = Loop::UNIX_SIGNAL(SIGINT, myLoop);
+    auto sigintEvt{ Loop::UNIX_SIGNAL(SIGINT, myLoop) };
     sigintEvt.onEvent([&myLoop](int) {
         std::cout << strsignal(SIGINT) << std::endl;
         myLoop.exit();
     });
 
-    auto sigtermEvt = Loop::UNIX_SIGNAL(SIGTERM, myLoop);
+    auto sigtermEvt{ Loop::UNIX_SIGNAL(SIGTERM, myLoop) };
     sigtermEvt.onEvent([&myLoop](int) {
         std::cout << strsignal(SIGTERM) << std::endl;
         myLoop.exit();
@@ -53,7 +53,7 @@ main()
     }
 
     // 1 - Setup our session
-    mhandle sess = mhandle(myLoop);
+    mhandle sess{ mhandle(myLoop) };
 
     // 2 - Setup our transfer
     handle hdl;
@@ -64,11 +64,7 @@ main()
     hdl.set_cb_done([&hdl, &sess, &outputFile](int rc) {
         static int i{ 0 };
         std::cout << "[DONE][" << i << "] - " << handle::retCode2Str(static_cast<handle::HDL_RetCode>(rc)) << std::endl;
-
-        if (i++ < 5)
-            sess.add_handle(hdl);
-        else
-            outputFile.close();
+        outputFile.close();
     });
     hdl.set_opt(CURLOPT_HTTPGET, 1L);
     hdl.set_opt(CURLOPT_URL, std::string(URL));

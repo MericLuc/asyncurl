@@ -1,9 +1,9 @@
 # asyncurl
-**:star2: C++ library to perform multi-threaded asynchronous network transfers :star2:**
+**:star2: C++ library to perform asynchronous network transfers :star2:**
 
 `asyncurl` is a C++ wrapper around `libcurl` providing interfaces to easily perform network transfers.
 
-It links with the `miniloop` eventloop (sorry for libcurl eventloop agnosticity) to provide an event-driven interface.
+It uses the [`miniloop`](https://github.com/MericLuc/miniloop) eventloop (sorry for libcurl eventloop agnosticity) to provide an event-driven interface.
 
 # How to use it
 
@@ -67,13 +67,13 @@ You need to setup one session by thread, that will use a loop dedicated to the t
 Simple, just type :
 
 ```
-cmake -S path/to/src -DCMAKE_INSTALL_PREFIX=path/to/install -DCMAKE_BUILD_TYPE=Release
+cmake -S path/to/src
 make install
 ```
 
 You can also enable facultative targets by setting cmake variables 
 
 | variable name     | type    | description
-| ----------------- | ------- | ------------------ |
-|  `BUILD_EXAMPLES` | boolean | Build the examples |
+| ----------------- | ------- | ------------------------------- |
+|  `BUILD_EXAMPLES` | boolean | Build the examples              |
 |  `BUILD_DOC`      | boolean | Build the doxygen documentation |

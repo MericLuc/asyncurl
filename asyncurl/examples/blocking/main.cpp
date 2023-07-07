@@ -10,7 +10,7 @@
  * <li>4 - Perform your transfer by calling asyncurl::handle::perform_blocking() </li>
  * </ul>
  *
- * In this example, we setup a transfer to download the README of asyncurl :)
+ * In this example, we setup a transfer to download the README of this project :)
  */
 
 #include <asyncurl/asyncurl.hpp>
@@ -20,8 +20,8 @@
 
 using namespace asyncurl;
 
-#define OUTPUT_FILENAME "blocking_output"
-#define URL "https://lhm-pc.osmozisdev.com/common/docs/asyncurl"
+#define OUTPUT_FILENAME "output.txt"
+#define URL "https://raw.githubusercontent.com/MericLuc/asyncurl/v1/README.md"
 
 int
 main()

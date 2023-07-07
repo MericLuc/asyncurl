@@ -708,7 +708,7 @@ handle::retCode2Str(handle::HDL_RetCode rc) noexcept
                                                                  { HDL_OUT_OF_MEM, "out of memory" },
                                                                  { HDL_INTERNAL_ERROR, "internal error" } };
 
-    return _retcodeMap.at(rc);
+    return (std::end(_retcodeMap) == _retcodeMap.find(rc)) ? "unknown" : _retcodeMap.at(rc);
 }
 
 } // namespace asyncurl

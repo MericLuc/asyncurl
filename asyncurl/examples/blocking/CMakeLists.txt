@@ -10,4 +10,12 @@ add_executable(
     main.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} miniloop asyncurl)
+target_link_libraries(${PROJECT_NAME}
+    PRIVATE
+        asyncurl
+)
+
+install(
+    TARGETS ${PROJECT_NAME}
+    RUNTIME DESTINATION bin
+)

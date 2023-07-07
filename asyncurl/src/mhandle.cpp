@@ -7,8 +7,8 @@
 #include <asyncurl/handle.hpp>
 #include <asyncurl/mhandle.hpp>
 
-#include <Loop.h>
 #include <curl/curl.h>
+#include <miniLoop/Loop.h>
 
 #include <map>
 #include <stdexcept>
