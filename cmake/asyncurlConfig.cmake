@@ -1,5 +1,4 @@
-add_library(${LIBRARY_NAME}
-  ${SOURCES})
+add_library(${LIBRARY_NAME} SHARED ${SOURCES})
 
 add_library(${PROJECT_NAME}::${LIBRARY_NAME} 
   ALIAS ${LIBRARY_NAME})
@@ -8,21 +7,22 @@ find_package(OpenSSL      REQUIRED)
 find_package(CURL         REQUIRED)
 find_package(miniLoop 1.0 REQUIRED)
 
-set_target_properties(${LIBRARY_NAME} PROPERTIES LINKER_LANGUAGE CXX                )
-set_target_properties(${LIBRARY_NAME} PROPERTIES PUBLIC_HEADER   "${HEADERS_PUBLIC}")
-set_target_properties(${LIBRARY_NAME} PROPERTIES OUTPUT_NAME     "${LIBRARY_NAME}"  )
-set_target_properties(${LIBRARY_NAME} PROPERTIES SUFFIX          ".a"               )
-set_target_properties(${LIBRARY_NAME} PROPERTIES PREFIX          "lib"              )
-
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(LIBEVENT          REQUIRED libevent          )
-pkg_check_modules(LIBEVENT_CORE     REQUIRED libevent_core     )
-pkg_check_modules(LIBEVENT_PTHREADS REQUIRED libevent_pthreads )
+set_target_properties(${LIBRARY_NAME} PROPERTIES LINK_FLAGS      "-Wl,-rpath,${CMAKE_INSTALL_PREFIX}/lib" )
+set_target_properties(${LIBRARY_NAME} PROPERTIES LINKER_LANGUAGE CXX                                      )
+set_target_properties(${LIBRARY_NAME} PROPERTIES PUBLIC_HEADER   "${HEADERS_PUBLIC}"                      )
+set_target_properties(${LIBRARY_NAME} PROPERTIES OUTPUT_NAME     "${LIBRARY_NAME}"                        )
+set_target_properties(${LIBRARY_NAME} PROPERTIES SUFFIX          ".so"                                    )
+set_target_properties(${LIBRARY_NAME} PROPERTIES PREFIX          "lib"                                    )
 
 target_compile_definitions(
     ${LIBRARY_NAME} 
     PUBLIC
         "${PROJECT_NAME_UPPERCASE}_DEBUG=$<CONFIG:Debug>")
+
+target_link_directories(${LIBRARY_NAME}
+    PUBLIC
+        ${CMAKE_INSTALL_PREFIX}/lib
+)
 
 target_include_directories(
     ${LIBRARY_NAME} 
@@ -39,9 +39,6 @@ target_link_libraries(
     ${LIBRARY_NAME}
     PUBLIC
         miniLoop
-        ${LIBEVENT_LIBRARIES}
-        ${LIBEVENT_CORE_LIBRARIES}
-        ${LIBEVENT_PTHREADS_LIBRARIES}
         ${CURL_LIBRARIES}
 )
 
